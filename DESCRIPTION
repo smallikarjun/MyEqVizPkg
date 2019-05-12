@@ -1,0 +1,26 @@
+Package: MyEqVizPkg
+Type: Package
+Title: Visualize NOAA Earthquake Data into Timeline and leaflet Map
+Version: 0.1.0
+Author: Sundar Mallikarjun
+Maintainer: Sundar Mallikarjun <sundarm@rediffmail.com>
+Description: Provide the tools for processing and visualizing the 
+             data so that others may extract some use out of the 
+             information embedded within.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Imports:
+    dplyr,
+    tidyr,
+    readr,
+    leaflet,
+    ggplot2,
+    magrittr,
+    lubridate
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat    
+RoxygenNote: 6.1.1
+VignetteBuilder: knitr

@@ -1,0 +1,107 @@
+---
+title: "NOAA earthquakes Visualization"
+author: "Sundar Mallikarjun"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This package provides tools to visualize the data so that others may extract some use out of the information embedded within for the dataset obtained from the U.S. National Oceanographic and Atmospheric Administration (NOAA) on significant earthquakes around the world. This dataset contains information about 5,933 earthquakes over an approximately 4,000 year time span. This dataset contains information on destructive earthquakes from 2150 B.C. to the present that meet at least one of the following criteria: 
+- Moderate damage (approximately $1 million or more), 
+- 10 or more deaths, 
+- Magnitude 7.5 or greater, 
+- Modified Mercalli Intensity X or greater, or 
+- the earthquake generated a tsunami.
+[[1](https://www.ngdc.noaa.gov/nndc/struts/form?t=101650&s=1&d=1)]
+
+More specificaly, this package implements:
+  
+- Two function for data cleaning: `eq_clean_data` and `eq_location_clean`
+- A new `ggplot2` geom for plotting time serie data: `geom_timeline`
+- A new `ggplot2` geom that adds labels to `geom_timeline` : `geom_timelinelabel`
+- A function that maps the epicenters (LATITUDE/LONGITUDE) and annotates each point in the dataset: `eq_map`
+- A function that creates an HTML label that can be used as the annotation text in the leaflet map: `eq_create_label`
+
+## Reading the Data
+  
+After downloading the data from the NOAA website, we recommend using the `readr` package in order to load the dataset into `R` :
+  
+```{r, message=FALSE}
+eq_data <- readr::read_delim('signif.txt', delim = '\t')
+dim(eq_data)
+```
+
+## Cleaning the Data
+
+```{r, echo=FALSE, warning=FALSE}
+library(magrittr)
+library(MyEqVizPkg)
+```
+
+The function `eq_clean_data` takes raw NOAA data frame and returns a clean data frame. The clean data frame have the following:
+
+- A date column created by uniting the year, month, day and converting it to the Date class
+- LATITUDE, LONGITUDE, EQ_PRIMARY and DEATHS columns converted to numeric class
+
+```{r}
+eq_raw_data <- eq_clean_data('signif.txt')
+```
+
+The function `eq_location_clean` cleans the LOCATION_NAME column by stripping out the country name (including the colon) and converts names to title case (as opposed to all caps). This will be needed later for annotating visualizations. This function is applied to the raw data and produce a cleaned up version of the LOCATION_NAME column.
+
+```{r}
+eq_loc_data <- eq_location_clean(eq_raw_data)
+```
+
+## Geom TimeLine
+
+This geom is used to plot a time line of earthquakes ranging from xmin to xmax dates with a point for each earthquake. Optional aesthetics include color, size, and alpha (for transparency). The xaesthetic is a date and an optional y aesthetic is a factor indicating some stratification in which case multiple time lines will be plotted for each level of the factor (e.g. country).
+
+```{r, fig.width=7, fig.height=4}
+library(magrittr)
+eq_raw_data %>%
+    dplyr::filter(lubridate::year(DATE) > 2010 & COUNTRY %in% c('INDIA', 'USA')) %>%
+    ggplot2::ggplot(ggplot2::aes(x = DATE, y = COUNTRY,
+                                 colour = DEATHS, size = EQ_PRIMARY)) +
+    geom_timeline(alpha = 0.5) +
+    theme_timeline
+```
+
+## Geom TimeLine with Labels
+
+This geom is used in combination with `` in order to add annotations to the earthquake data. This geom adds a vertical line to each data point with a text annotation (e.g. the location of the earthquake) attached to each line. There exist an option to subset n_max number of earthquakes, where we take the n_max largest (by magnitude) earthquakes. Aesthetics are x, which is the date of the earthquake and label which takes the column name from which annotations will be obtained.
+```{r, fig.width=7, fig.height=5.5}
+```
+
+## Leaflet Map
+
+The function `eq_map` takes an argument data containing the filtered data frame with earthquakes to visualize. The function maps the epicenters (`LATITUDE/LONGITUDE`) and annotates each point with in pop up window containing annotation data stored in a column of the data frame. The user can choose which column to be used for the annotation in the pop-up with a function argument named `annot_col`. Each earthquake is shown with a circle, and the radius of the circle is proportional to the earthquake's magnitude (`EQ_PRIMARY`).
+
+```{r, fig.width=7, fig.height=4}
+library(magrittr)
+eq_raw_data %>%
+    dplyr::filter(COUNTRY == 'INDIA' & lubridate::year(DATE) >= 2000) %>%
+    eq_map(annot_col = 'DATE')
+```
+
+## Leaflet Map with a More Useful Pop-up Label
+
+The function `eq_create_label` takes the dataset as an argument and creates an HTML label that can be used as the annotation text in the leaflet map. This function puts together a character string for each earthquake that will show the cleaned location (as cleaned by the `eq_location_clean()` function), the magnitude (`EQ_PRIMARY`), and the total number of deaths (`TOTAL_DEATHS`). If an earthquake is missing values for any of these, both the label and the value are skipped for that element of the tag.
+
+```{r, fig.width=7, fig.height=4}
+library(magrittr)
+eq_raw_data %>%
+    dplyr::filter(COUNTRY == 'INDIA' & lubridate::year(DATE) >= 2000) %>%
+    dplyr::mutate(popup_text = eq_create_label(.)) %>%
+    eq_map(annot_col = 'popup_text')
+```
